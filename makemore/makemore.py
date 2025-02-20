@@ -89,3 +89,29 @@ for k in range(1000):
     W.data -= 50 * W.grad
 
 print(loss.item())
+
+
+g = torch.Generator().manual_seed(2147483647)
+
+for i in range(5):
+  
+  out = []
+  ix = 0
+  while True:
+    
+    # ----------
+    # BEFORE:
+    #p = P[ix]
+    # ----------
+    # NOW:
+    xenc = F.one_hot(torch.tensor([ix]), num_classes=27).float()
+    logits = xenc @ W # predict log-counts
+    counts = logits.exp() # counts, equivalent to N
+    p = counts / counts.sum(1, keepdims=True) # probabilities for next character
+    # ----------
+
+    ix = torch.multinomial(p, num_samples=1, replacement=True, generator=g).item()
+    out.append(itos[ix])
+    if ix == 0:
+      break
+  print(''.join(out))
