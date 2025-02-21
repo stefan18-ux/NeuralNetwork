@@ -14,6 +14,8 @@ itos = {i:s for s,i in stoi.items()}
 
 block_size = 3
 emb_size = 15
+minibatch_size = 1000
+hidden_layer_neurons = 400
 
 def build_dataset(words):
     X, Y = [], []
@@ -43,11 +45,10 @@ Xte, Yte = build_dataset(words[n2:])
 
 g = torch.Generator().manual_seed(2147483647)
 
-
 C = torch.randn((27, emb_size), generator = g)
-W1 = torch.randn(block_size * emb_size, 300, generator = g)
-b1 = torch.randn(300, generator = g)
-W2 = torch.randn(300, 27, generator = g)
+W1 = torch.randn(block_size * emb_size, hidden_layer_neurons, generator = g)
+b1 = torch.randn(hidden_layer_neurons, generator = g)
+W2 = torch.randn(hidden_layer_neurons, 27, generator = g)
 b2 = torch.randn(27, generator = g)
 params = [C, W1, W2, b1, b2]
 # print(sum(p.nelement() for p in params))
@@ -66,7 +67,7 @@ lossi = []
 
 for step in range(steps):
     # minibatch construct 
-    ix = torch.randint(0, Xtr.shape[0], (1000,))
+    ix = torch.randint(0, Xtr.shape[0], (minibatch_size,))
     emb = C[Xtr[ix]]
     h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
     logits = h @ W2 + b2 #(32, 27)
@@ -93,14 +94,6 @@ plt.show()
 
 print(f'Training loss is {loss.item()} from training on minibatches')
 
-emb = C[Xdev]
-h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
-logits = h @ W2 + b2
-loss = F.cross_entropy(logits, Ydev)
-
-print(f'Testing loss is {loss.item()}')
-
-
 emb = C[Xtr]
 h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
 logits = h @ W2 + b2
@@ -108,3 +101,21 @@ loss = F.cross_entropy(logits, Ytr)
 
 print(f'Training loss is {loss.item()} on the actual full tranining data')
 
+emb = C[Xdev]
+h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
+logits = h @ W2 + b2
+loss = F.cross_entropy(logits, Ydev)
+
+print(f'Testing loss is {loss.item()}')
+
+torch.save({
+    'C': C,
+    'W1': W1,
+    'b1': b1,
+    'W2': W2,
+    'b2': b2,
+    'stoi': stoi,
+    'itos': itos,
+    'block_size': block_size,
+    'emb_size': emb_size
+}, 'makemore.pth')
