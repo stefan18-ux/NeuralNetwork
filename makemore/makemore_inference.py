@@ -9,10 +9,8 @@ W2 = checkpoint['W2']
 b2 = checkpoint['b2']
 stoi = checkpoint['stoi']
 itos = checkpoint['itos']
-# block_size = checkpoint['block_size']
-block_size = 3
-# emb_size = checkpoint['emb_size']
-emb_size = 15
+block_size = checkpoint['block_size']
+emb_size = checkpoint['emb_size']
 
 g = torch.Generator().manual_seed(2147483647 + 10)
 

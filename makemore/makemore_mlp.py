@@ -14,8 +14,9 @@ itos = {i:s for s,i in stoi.items()}
 
 block_size = 3
 emb_size = 15
-minibatch_size = 1000
-hidden_layer_neurons = 400
+minibatch_size = 32
+hidden_layer_neurons = 300
+vocab_size = len(itos)
 
 def build_dataset(words):
     X, Y = [], []
@@ -45,11 +46,11 @@ Xte, Yte = build_dataset(words[n2:])
 
 g = torch.Generator().manual_seed(2147483647)
 
-C = torch.randn((27, emb_size), generator = g)
+C = torch.randn((vocab_size, emb_size), generator = g)
 W1 = torch.randn(block_size * emb_size, hidden_layer_neurons, generator = g)
 b1 = torch.randn(hidden_layer_neurons, generator = g)
-W2 = torch.randn(hidden_layer_neurons, 27, generator = g)
-b2 = torch.randn(27, generator = g)
+W2 = torch.randn(hidden_layer_neurons, vocab_size, generator = g) * 0.01
+b2 = torch.randn(vocab_size, generator = g) * 0
 params = [C, W1, W2, b1, b2]
 # print(sum(p.nelement() for p in params))
 
@@ -60,7 +61,7 @@ for p in params:
 lre = linspace(-3, 0, 1000)
 lrs = 10**lre
 
-steps = 200000
+steps = 300000
 lri = []
 stepi = []
 lossi = []
@@ -81,6 +82,8 @@ for step in range(steps):
     loss.backward()
 
     lr = 0.1 if step < 100000 else 0.01
+    if step > 200000:
+        lr = 0.001
     for p in params:
         p.data += -lr * p.grad
 
