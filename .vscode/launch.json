@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/ellioth/iocla/hardware-software-interface/labs/lab-03/guides/goto-warm-up/support/bogosort",
+      "program": "/Users/ellioth/iocla/hardware-software-interface/labs/lab-03/guides/goto-warm-up/support/bogosort/build/Debug/outDebug"
+    }
+  ]
+}

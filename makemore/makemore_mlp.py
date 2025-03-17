@@ -15,7 +15,7 @@ itos = {i:s for s,i in stoi.items()}
 block_size = 3
 emb_size = 15
 minibatch_size = 32
-hidden_layer_neurons = 300
+hidden_layer_neurons = 200
 vocab_size = len(itos)
 
 def build_dataset(words):
@@ -47,11 +47,17 @@ Xte, Yte = build_dataset(words[n2:])
 g = torch.Generator().manual_seed(2147483647)
 
 C = torch.randn((vocab_size, emb_size), generator = g)
-W1 = torch.randn(block_size * emb_size, hidden_layer_neurons, generator = g)
-b1 = torch.randn(hidden_layer_neurons, generator = g)
+W1 = torch.randn(block_size * emb_size, hidden_layer_neurons, generator = g) * (5/3) / ((block_size * emb_size)**0.5)  # * 0.2
+b1 = torch.randn(hidden_layer_neurons, generator = g) * 0.01
 W2 = torch.randn(hidden_layer_neurons, vocab_size, generator = g) * 0.01
 b2 = torch.randn(vocab_size, generator = g) * 0
-params = [C, W1, W2, b1, b2]
+# BatchNorm parameters
+bngain = torch.ones((1, hidden_layer_neurons))
+bnbias = torch.zeros((1, hidden_layer_neurons))
+# Get a rough idea of what they are based on the training set we feed into the neural network
+bnmean_running = torch.zeros((1, hidden_layer_neurons))
+bnstd_running = torch.ones((1, hidden_layer_neurons))
+params = [C, W1, W2, b1, b2, bngain, bnbias]
 # print(sum(p.nelement() for p in params))
 
 for p in params:
@@ -61,7 +67,7 @@ for p in params:
 lre = linspace(-3, 0, 1000)
 lrs = 10**lre
 
-steps = 300000
+steps = 200000
 lri = []
 stepi = []
 lossi = []
@@ -70,7 +76,21 @@ for step in range(steps):
     # minibatch construct 
     ix = torch.randint(0, Xtr.shape[0], (minibatch_size,))
     emb = C[Xtr[ix]]
-    h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
+    embcat = emb.view(-1, block_size * emb_size)
+    # Linear layer
+    hpreact = embcat @ W1 + b1
+    # BatchNorm layer
+    # ----------------------------------------------------------------
+    bnmeani = hpreact.mean(0, keepdim=True)
+    bnstdi = hpreact.std(0, keepdim=True)
+    hpreact = bngain * (hpreact - bnmeani) / bnstdi + bnbias
+
+    with torch.no_grad():
+        bnmean_running = 0.999 * bnmean_running + 0.001 * bnmeani
+        bnstd_running = 0.999 * bnstd_running + 0.001 * bnstdi
+    # ----------------------------------------------------------------
+    # Non-linearity
+    h = torch.tanh(hpreact)
     logits = h @ W2 + b2 #(32, 27)
     # count = logits.exp()
     # probs = count / count.sum(1, keepdims = True)
@@ -92,20 +112,31 @@ for step in range(steps):
     lossi.append(loss.log10().item())
 
 
-plt.plot(stepi, lossi)
-plt.show()
+# plt.hist(h.view(-1).tolist(), 50)
+# plt.show()
+# plt.figure(figsize=(20, 10))
+# plt.imshow(h.abs() > 0.99, cmap = "grey", interpolation='nearest')
+
+# plt.plot(stepi, lossi)
+# plt.show()
 
 print(f'Training loss is {loss.item()} from training on minibatches')
 
 emb = C[Xtr]
-h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
+embcat = emb.view(-1, block_size * emb_size)
+hpreact = embcat @ W1 + b1
+hpreact = bngain * (hpreact - bnmean_running) / bnstd_running + bnbias
+h = torch.tanh(hpreact)
 logits = h @ W2 + b2
 loss = F.cross_entropy(logits, Ytr)
 
 print(f'Training loss is {loss.item()} on the actual full tranining data')
 
 emb = C[Xdev]
-h = torch.tanh(emb.view(-1, block_size * emb_size) @ W1 + b1)
+embcat = emb.view(-1, block_size * emb_size)
+hpreact = embcat @ W1 + b1
+hpreact = bngain * (hpreact - bnmean_running) / bnstd_running + bnbias
+h = torch.tanh(hpreact)
 logits = h @ W2 + b2
 loss = F.cross_entropy(logits, Ydev)
 
@@ -120,5 +151,9 @@ torch.save({
     'stoi': stoi,
     'itos': itos,
     'block_size': block_size,
-    'emb_size': emb_size
+    'emb_size': emb_size,
+    'bngain': bngain,
+    'bnbias': bnbias,
+    'bnmean_running': bnmean_running,
+    'bnstd_running': bnstd_running
 }, 'makemore.pth')
